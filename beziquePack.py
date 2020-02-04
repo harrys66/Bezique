@@ -24,6 +24,9 @@ class Card:
             self.points = 10
         else:
             self.points = 0
+            
+    def __str__(self):
+        return " of ".join((self.value, self.suit)) #str vs repr? want to print combined strings of cards and other info
 
     def __repr__(self):
         return " of ".join((self.value, self.suit))
@@ -128,23 +131,26 @@ class Game:
         decidingDealer = True
         
         while decidingDealer:
-            print('You cut the deck to reveal')
+            print('You cut the deck to reveal...')
+            time.sleep(1)
             myCutCard = self.deck.cards[random.randint(0,64)] #64 hardcoded, could detect length of deck..?
             print(myCutCard)
-            print('Opponent cuts the deck to reveal')
+            print('Opponent cuts the deck to reveal...')
+            time.sleep(1)
             opponentCutCard = self.deck.cards[random.randint(0,64)]
             print(opponentCutCard)
+            time.sleep(1)
             
             if myCutCard.rank > opponentCutCard.rank:
                 print('You win the cut, assigned as dealer!')
                 dealerFlag = True
                 decidingDealer = False
-                self.playerAction = True
+                self.playerAction = False
             elif opponentCutCard: 
                 print('Opponent wins the cut, opponent assigned as dealer')
                 decidingDealer = False
                 dealerFlag = False
-                self.playerAction = False
+                self.playerAction = True
             else:
                 print('Values equal cutting again...')
             print()
@@ -174,6 +180,18 @@ class Game:
         print(displayCard)
         print("Trumps are: " + displayCard.suit)
         self.trumpSuit = displayCard.suit
+        print()
+        
+        if displayCard.value == '7':
+            print('Dealer turned up a 7, scores 10 points!')
+            if self.playerAction:
+                self.opponentAI.playerInfo.score += 10
+            else:
+                self.player.score += 10 
+            
+            print('Player score: ' + str(self.player.score))
+            print('Opponent score: ' + str(self.opponentAI.playerInfo.score))
+            print()
         
         bezHand = Hand() #property of class?
         
@@ -196,6 +214,7 @@ class Game:
                 opponentCard = self.opponentAI.playerInfo.hand.cards.pop(random.randint(0,7)) #for now just picking a random card...
                 print('Opponent plays...')
                 print(opponentCard)
+                time.sleep(0.5)
                 self.evaluateTrick(playedCard,opponentCard)
 #                if playedCard.suit != opponentCard.suit: #need to make generic with logic for if opponent goes first
 #                    if  opponentCard.suit != self.trumpSuit:
@@ -212,6 +231,7 @@ class Game:
                 opponentCard = self.opponentAI.playerInfo.hand.cards.pop(random.randint(0,7)) #for now just picking a random card...
                 print('Opponent plays...')
                 print(opponentCard)
+                print()
                 playedCard = self.playerSelectCard()
                 self.evaluateTrick(opponentCard,playedCard) #could set first and second cards in loop and call this function only once outside if statement
             
@@ -225,27 +245,94 @@ class Game:
             
             if self.playerAction:
                 while declaring:
-                self.player.hand.display()
-                actionChoice = ('Your turn, declare or pickup or quit? [d/p/q])')
-                if actionChoice == 'd':
-                    decChoice = input('Select cards to declare (1-7) ')
-                    
-                elif actionChoice == 'q':
-                    playing = False
-                elif actionChoice = 'p'
-                    declaring = False
-                    self.player.hand.add_card(self.deck.deal())
                     self.player.hand.display()
+                    actionChoice = input('Your turn, declare or pickup or quit? [d/p/q])')
+                    if actionChoice == 'd':
+                        decChoice = input('Select cards to declare (1-7) ')
+                        if len(decChoice) == 1:
+                            decChoice = int(decChoice)
+                            cardChoice = self.player.hand.cards[(decChoice - 1)]
+                            if (cardChoice.suit == self.trumpSuit) and (cardChoice.value == '7'):
+                                if displayCard.value == '7': #should this be a property/atribute of self/game object?
+                                    print('Seven of trumps shown in hand, 10 points scored')
+                                else:
+                                    self.player.hand.add_card(displayCard)
+                                    oldDisplayCard = str(displayCard)
+                                    displayCard = self.player.hand.cards.pop((decChoice - 1))#swap the card
+                                    self.player.hand.sortHand()
+                                    print('Face up card ' + oldDisplayCard + ' swapped for ' + str(displayCard))
+                                    
+                                self.player.score += 10
+                            else:
+                                print('Card selection cannot be declared')#can't declare this card
+                        else: #could use length to narrow down further
+                            decChoice = decChoice.split(',')
+                            cardIndex = [int(x)-1 for x in decChoice]
+                            cardIndex.sort()
+                            suitList = [self.player.hand[cardIndex].suit for i in cardIndex]
+                            valueList = [self.player.hand[cardIndex].value for i in cardIndex]
+                            
+                            #need to make generic for opponent too!!
+                            if len(cardIndex) == 2: #bezique or marriage #large if statement, store bezique knowledge beforehand? #more clever way of matching up use boolean array?
+                                if ((suitList == ['Diamonds','Spades'] and valueList == ['J','Q'] and 
+                                    (displayCard.suit == 'Hearts' or displayCard.suit == 'Clubs')) or 
+                                    (suitList == ['Clubs','Hearts'] and valueList == ['Q','J'] and 
+                                    (displayCard.suit == 'Diamonds' or displayCard.suit == 'Spades'))): #cards are already sorted                                
+                                    print('Bezique declared, 40 points!')
+                                    self.player.score += 40
+                                elif len(set(suitList)==1):
+                                    if valueList == ['Q','K']:
+                                        if suitList[0] == displayCard.suit:
+                                            print('Royal marriage declared, 40 points!')
+                                            self.player.score += 40
+                                        else:
+                                            print('Common marriage declared, 20 points!')
+                                            self.player.score += 20
+                                else:
+                                    print('Selected cards cannot be declared')
+                                print()
+                            elif len(cardIndex) == 4: #double bezique or set
+                                print()
+                                
+                            elif len(cardIndex) == 5: #sequence
+                                if (displayCard.suit in set(suitList)) and (len(set(suitList)) == 1) and (valueList == ['J','Q','K','A','10']):
+                                    print('Sequence scored!!')
+                                    self.player.score += 250
+                                    
+                                
+#                                suitList = [self.player.hand[(i-1)].suit for i in decChoice]
+#                                valueList = 
+#                                seqHand = Hand()
+#                                for i in cardIndex:
+#                                    seqHand.add_card(self.player.hand.cards[i])
+                            
+                    elif actionChoice == 'q':
+                        declaring = False
+                        playing = False
+                                                
+                    elif actionChoice == 'p':
+                        declaring = False
+            
+            newCard = self.deck.deal()
+            newCard = Card(displayCard.suit,'7') #temp
+            print('You pick up card: ')
+            print(newCard)
+            print()
+            self.player.hand.add_card(newCard)
+            self.player.hand.sortHand()
+#            self.player.hand.display() #where to display? just show new card here?
+            self.opponentAI.playerInfo.hand.add_card(self.deck.deal())
                 
             #evaluate played cards            
             
-        return self.player_hand
 
     def playerSelectCard(self):
+        self.player.hand.display()
         cardChoice = int(input('Select a card to play (1-8) '))
         playedCard = self.player.hand.cards.pop((cardChoice - 1))
         print('Playing...')
         print(playedCard)
+        time.sleep(0.5)
         return playedCard
     
     def evaluateTrick(self,leadCard,secondCard):       
